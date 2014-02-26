@@ -89,16 +89,15 @@ class i_installer_customcode{
 		//===========================
 		//! Grab Course Information
 		//===========================
-
+		include_once 'config.php';
 		include_once 'FeedCache.php';
-		$feed_cache = new FeedCache('local_file.xml', 'https://spreadsheets.google.com/feeds/list/ENTERYOURSPREADSHEETKEYHERE/od7/public/basic?alt=rss');
+		$feed_cache = new FeedCache('local_file.xml', $googlespreadsheeturl);
 		$rss = simplexml_load_string($feed_cache->get_data());
 			
 		foreach($rss->xpath('channel/item') as $item)
 			{
 				$option_description = explode (",", $item->description);
 				$option_coursecode = substr($option_description[0], 12);
-				$option_instructor = substr($option_description[1], 20);
 				$option_arr[$option_coursecode] = $item->title; 
 			}		
 	
@@ -141,8 +140,8 @@ class i_installer_customcode{
 	}
 	
 	function addsite($o){
-	
-		$thedb = new PDO('mysql:host=localhost;dbname=YOURDBNAME', 'YOURDBUSER', 'YOURDBPASS');
+		include_once 'config.php';
+		
 		$siteurl = $o->install->ini["url"];
 		$cleanurlhost = parse_url($siteurl, PHP_URL_HOST);
 		$cleanurlpath = parse_url($siteurl, PHP_URL_PATH);
@@ -172,20 +171,46 @@ class i_installer_customcode{
 		$software = $o->install->ini["installer"];
 		$course = $o->input["field_course"];
 		$status = $o->input["field_status"];
-        $instructor = $option_instructor;
+        
+        //===========================================
+		//! retreive instructor/dept code information from RSS Feed based on
+		//===========================================
+        include_once 'FeedCache.php';
+			
+		$feed_cache = new FeedCache('local_file.xml', $googlespreadsheeturl);
+		$array = json_decode(json_encode((array)simplexml_load_string($feed_cache->get_data())),1);
+		
+		$itemArray = $array['channel']['item'];
+		
+		foreach ($itemArray as $key => $val){
+           foreach ($val as $key1 => $val1) {
+			   if (strpos($val1, $course) !== false) {
+				   $itemid = $key;
+               }
+		    }
+		}
+		
+		$coursedescription = $itemArray[$itemid]['description'];
+		$coursedescriptionexp = explode (",", $coursedescription);
+		$courseinstructor = substr($coursedescriptionexp[1], 18);
+		$coursedept = substr($coursedescriptionexp[2], 14);
+		$course2 = substr($coursedescriptionexp[4], 6);
+
 
 		//=================================================
-		//! API call to umwdomains.com to write Site post
+		//! API call to community.umwdomains.com to write Site post
 		//=================================================
 
-		$apiurl = "URLTOJSONAPIENDPOINT"; // We use the JSON-API plugin to create new posts on our Wordpress install
+		$apiurl = $wp_apiurl . 'posts/create_post/';
+		
 		$customfields["wpcf-siteurl"] = $siteurl;
 		$customfields["wpcf-install-date"] = $regtime;
 		$customtax["software"] = $software;
-		$customtax["course"] = $course;
-		$customtax["instructor"] = $instructor;
+		$customtax["course"] = $course2;
+		$customtax["instructor"] = $courseinstructor;
 		$customtax["status"] = $status;
-    
+		$customtax["department"] = $coursedept;
+
 		$postfields = array();
 		$postfields["author"] = $userid;
 		$postfields["title"] = $siteurl;
@@ -204,50 +229,31 @@ class i_installer_customcode{
 		curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
 		$jsondata = curl_exec($ch);
 		curl_close($ch);
-
-		//========================================
-		//! Check site URL for existence of feed
-		//========================================
-			
-		if($html = @DOMDocument::loadHTML(file_get_contents($siteurl))) {
-  
-			$xpath = new DOMXPath($html);
-			$results = array();
-         
-			//======================
-			//! find RSS 2.0 feeds
-			//======================
-
-			$feeds = $xpath->query("//head/link[@href][@type='application/rss+xml']/@href");
-			foreach($feeds as $feed) {
-				$results[] = $feed->nodeValue;
-			}
-  
-			//===================
-			//! find Atom feeds
-			//===================
-
-			$feeds = $xpath->query("//head/link[@href][@type='application/atom+xml']/@href");
-			foreach($feeds as $feed) {
-					$results[] = $feed->nodeValue;
-			}
-        
-			$feedurl = $results[0];
-  
-		}
 		
-		//=======================================================================
-		//! If feed is found, add site to FeedWordpress with author information
-		//=======================================================================
-			
-		if (!is_null($feedurl)) {
-			$link_author = 'map authors: name\\\\n*\\\\n'.$userid;
-			$thedb->query("INSERT INTO `wp_links` (`link_id`, `link_url`, `link_name`, `link_image`, `link_target`, `link_description`, `link_visible`, `link_owner`, `link_rating`, `link_updated`, `link_rel`, `link_notes`, `link_rss`) VALUES
-(null, '$siteurl', '$siteurl', '', '', '', 'Y', '$userid', 0, '0000-00-00 00:00:00', '', '$link_author', '$feedurl')");
-			$linkid = $thedb->lastInsertId();
-			$thedb->query("INSERT INTO `wp_term_relationships` (`object_id`, `term_taxonomy_id`, `term_order`) VALUES
-($linkid, 8, 0)");
- 		}
+		//===========================
+		//! Add site feed on community
+		//===========================
+		
+		$feedapiurl = $wp_apiurl . 'links/add_feed/';
+    
+		$feedpostfields = array();
+		$feedpostfields["link_url"] = $siteurl;
+		$feedpostfields["link_owner"] = $userid;
+		$feedpostfields["link_instructor"] = $courseinstructor;
+		$feedpostfields["link_course"] = $course2;
+		$feedpostfields["link_dept"] = $coursedept;
+ 	
+		$feedquery_string = http_build_query($feedpostfields);
+ 
+		$feedch = curl_init();
+		curl_setopt($feedch, CURLOPT_URL, $feedapiurl);
+		curl_setopt($feedch, CURLOPT_POST, 1);
+		curl_setopt($feedch, CURLOPT_TIMEOUT, 30);
+		curl_setopt($feedch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($feedch, CURLOPT_POSTFIELDS, $feedquery_string);
+		$feedjsondata = curl_exec($feedch);
+		curl_close($feedch);
+
  		
 	}
 
@@ -331,5 +337,6 @@ class i_installer_customcode{
 		//$o->extract("confirmaccount", "extensions/");
 		$o->sr("LocalSettings.php", "#Add\s*more\s*configuration\s*options\s*below.#", "End of automatically generated settings. \n\n \$wgGroupPermissions['*']['edit'] = false; \n\n \$wgGroupPermissions['*']['createpage'] = false; \n\n \$wgEmailConfirmToEdit = true;");
 	}
+
 }
 ?>
