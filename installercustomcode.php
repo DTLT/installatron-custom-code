@@ -32,6 +32,11 @@ class i_installer_customcode{
 		$this->registerArchive("testimonials","http://downloads.wordpress.org/plugin/testimonials-widget.2.17.2.zip", "zip");
 		$this->registerArchive("tinymcewidget","http://downloads.wordpress.org/plugin/black-studio-tinymce-widget.1.2.0.zip", "zip");
 		$this->registerArchive("researchfields", "http://umwdomains.com/installatron/plugins/research-log-fields.zip", "zip");
+		$this->registerArchive("giscategories","http://umwdomains.com/installatron/plugins/gis_categories.zip", "zip");
+		$this->registerArchive("githubshortcode","http://downloads.wordpress.org/plugin/github-shortcode.zip", "zip");
+		$this->registerArchive("wpgithubcommits","http://downloads.wordpress.org/plugin/wp-github-commits.0.5.zip", "zip");
+		$this->registerArchive("githubwordpresswidget","http://downloads.wordpress.org/plugin/github-profile-display.0.99.zip", "zip");
+		$this->registerArchive("crayonsyntaxhighlighter","http://downloads.wordpress.org/plugin/crayon-syntax-highlighter.zip", "zip");
 			
 		//=====================================
 		//! Themes for Professional Portfolio
@@ -294,6 +299,11 @@ class i_installer_customcode{
 			$o->extract("testimonials", "wp-content/plugins");
 			$o->extract("tinymcewidget", "wp-content/plugins");
 			$o->extract("researchfields", "wp-content/plugins");
+			$o->extract("giscategories", "wp-content/plugins");
+			$o->extract("githubshortcode", "wp-content/plugins");
+			$o->extract("wpgithubcommits", "wp-content/plugins");
+			$o->extract("githubwordpresswidget", "wp-content/plugins");
+			$o->extract("crayonsyntaxhighlighter", "wp-content/plugins");
 			$page1url = $siteurl . '/?page_id=3';
 			$page2url = $siteurl . '/?page_id=4';
 			$page3url = $siteurl . '/?page_id=5';
