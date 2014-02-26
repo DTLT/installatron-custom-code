@@ -86,6 +86,7 @@ class i_installer_customcode{
 		$this->registerCustomCode("all", "all", "install", 1, "init", "allinstallinput");
 		$this->registerCustomCode("wordpress", "all", "install", 1, "init", "wordpressinstallinput");
 		$this->registerCustomCode("wordpress", "all", "install", "last", "process", "wordpressinstall");
+		$this->registerCustomCode("all", "all", "uninstall", "last", "process", "alluninstall");
 		$this->registerCustomCode("mediawiki", "all", "install", "last", "process", "mediawikiinstall");
 	}
 
@@ -347,6 +348,32 @@ class i_installer_customcode{
 		//$o->extract("confirmaccount", "extensions/");
 		$o->sr("LocalSettings.php", "#Add\s*more\s*configuration\s*options\s*below.#", "End of automatically generated settings. \n\n \$wgGroupPermissions['*']['edit'] = false; \n\n \$wgGroupPermissions['*']['createpage'] = false; \n\n \$wgEmailConfirmToEdit = true;");
 	}
-
+	
+	function alluninstall($o){
+		include_once 'config.php';
+		
+		$siteurl = $o->install->ini["url"];
+		
+		//===========================
+		//! Remove site from Community
+		//===========================
+		
+		$apiurl = $wp_apiurl . 'posts/delete_post/';
+    
+		$postfields = array();
+		$postfields["post_url"] = $siteurl;
+ 	
+		$query_string = http_build_query($postfields);
+ 
+		$ch = curl_init();
+		curl_setopt($ch, CURLOPT_URL, $apiurl);
+		curl_setopt($ch, CURLOPT_POST, 1);
+		curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+		curl_setopt($ch, CURLOPT_POSTFIELDS, $query_string);
+		$jsondata = curl_exec($ch);
+		curl_close($ch);
+		
+	}
 }
 ?>
